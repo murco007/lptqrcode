@@ -21,4 +21,3 @@ export function createDB(connection){
  return {prepare,async batch(statements){const results=[];for(const statement of statements)results.push(await statement.run());return results;}};
 }
 
-
