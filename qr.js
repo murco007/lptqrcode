@@ -25,4 +25,3 @@ function qrMatrix(text){
 function qrSvg(text){const m=qrMatrix(text);const path=m.flatMap((row,y)=>row.map((v,x)=>v?'M'+(x+4)+','+(y+4)+'h1v1h-1z':'')).join('');return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 49 49" shape-rendering="crispEdges"><rect width="49" height="49" fill="white"/><path d="'+path+'" fill="#123c33"/></svg>'}
 
 window.qrSvg=qrSvg;})();
-
