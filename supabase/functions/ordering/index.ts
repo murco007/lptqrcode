@@ -7,27 +7,27 @@ function database(){return pool??=postgres(Deno.env.get('ORDERING_DB_URL')||requ
 const reply=(value:unknown,status:number,headers:HeadersInit={})=>Response.json(value,{status,headers});
 Deno.serve(async request=>{
  let privateSettings:Record<string,string>;
- try{const rows=await database().unsafe('SELECT settings FROM ordering.runtime_config WHERE id=1');privateSettings=rows[0]?.settings||{};}catch{return reply({error:'���ݸ�Ʈw�s�u�|�������C'},503);}
+ try{const rows=await database().unsafe('SELECT settings FROM ordering.runtime_config WHERE id=1');privateSettings=rows[0]?.settings||{};}catch{return reply({error:'雲端資料庫連線尚未完成。'},503);}
  const allowed=Deno.env.get('SITE_URL')||privateSettings.SITE_URL||'https://murco007.github.io/lptqrcode/';
- if(!allowed)return reply({error:'���ݥD���|���]�w SITE_URL�C'},503);
+ if(!allowed)return reply({error:'雲端主機尚未設定 SITE_URL。'},503);
  const site=new URL(allowed);const origin=request.headers.get('origin');
  const cors={'Access-Control-Allow-Origin':site.origin,'Vary':'Origin','Access-Control-Allow-Headers':'apikey,content-type,x-staff-session','Access-Control-Allow-Methods':'GET,POST,OPTIONS','Access-Control-Expose-Headers':'Content-Disposition','Cache-Control':'no-store'};
- if(origin!==site.origin)return reply({error:'�бq���w�I�\�����ާ@�C'},403);
+ if(origin!==site.origin)return reply({error:'請從指定點餐網站操作。'},403);
  if(request.method==='OPTIONS')return new Response(null,{status:204,headers:cors});
  const path=new URL(request.url).pathname.replace(/^\/(?:functions\/v1\/)?ordering(?=\/|$)/,'');
- if(!path.startsWith('/api/')||!['GET','POST'].includes(request.method))return reply({error:'�䤣�즹�\��C'},404,cors);
+ if(!path.startsWith('/api/')||!['GET','POST'].includes(request.method))return reply({error:'找不到此功能。'},404,cors);
  try{
   let body:string|undefined;
   if(request.method==='POST'){
    const reader=request.body?.getReader();let size=0;const parts:Uint8Array[]=[];
-   if(reader)while(true){const {done,value}=await reader.read();if(done)break;size+=value.length;if(size>1048576){await reader.cancel();return reply({error:'�W�Ǹ�ƹL�j�C'},413,cors);}parts.push(value);}
+   if(reader)while(true){const {done,value}=await reader.read();if(done)break;size+=value.length;if(size>1048576){await reader.cancel();return reply({error:'上傳資料過大。'},413,cors);}parts.push(value);}
    const bytes=new Uint8Array(size);let offset=0;for(const part of parts){bytes.set(part,offset);offset+=part.length;}body=new TextDecoder().decode(bytes);
   }
   const session=request.headers.get('x-staff-session')||'';
-  if(session&&!/^(admin|kitchen|cashier)\.\d{13}\.[a-f0-9]{64}$/.test(session))return reply({error:'�Э��s�n�J�C'},401,cors);
+  if(session&&!/^(admin|kitchen|cashier)\.\d{13}\.[a-f0-9]{64}$/.test(session))return reply({error:'請重新登入。'},401,cors);
   const keys=['SESSION_SECRET','STAFF_PASSWORD_SALT','CASHIER_PASSWORD_HASH','KITCHEN_PASSWORD_HASH','ADMIN_USERNAME','ADMIN_PASSWORD_HASH','ADMIN_PASSWORD_SALT'];
   const env=Object.fromEntries(keys.map(key=>[key,Deno.env.get(key)||privateSettings[key]||'']));
-  if(keys.some(key=>!env[key])&&!['/api/menu','/api/table'].includes(path))return reply({error:'���ݵn�J�]�w�|�������A�Ȥ������I�\�C'},503,cors);
+  if(keys.some(key=>!env[key])&&!['/api/menu','/api/table'].includes(path))return reply({error:'雲端登入設定尚未完成，暫不接受點餐。'},503,cors);
   const result=await database().begin(async transaction=>{
    await transaction.unsafe('SET LOCAL search_path TO ordering, pg_catalog');
    // Serialize complete business operations to preserve order/checkout invariants.
@@ -42,7 +42,6 @@ Deno.serve(async request=>{
   if(path==='/api/menu'&&result.ok)return reply({...await result.json(),ready:keys.every(key=>!!env[key])},200,headers);
   if(path==='/api/login'&&result.ok){const data=await result.json();const token=result.headers.get('Set-Cookie')?.match(/^staff=([^;]+)/)?.[1];if(!token)throw Error('Missing session');return reply({...data,session:token},200,headers);}
   return new Response(await result.arrayBuffer(),{status:result.status,headers});
- }catch(error){console.error('Ordering backend failed',error instanceof Error?error.name:'unknown');return reply({error:'���ݥD���ȮɵL�k�ϥΡA�нT�{��ݳ]�w�C'},503,cors);}
+ }catch(error){console.error('Ordering backend failed',error instanceof Error?error.name:'unknown');return reply({error:'雲端主機暫時無法使用，請確認後端設定。'},503,cors);}
 });
-
 
