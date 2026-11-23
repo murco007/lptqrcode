@@ -136,4 +136,3 @@ REVOKE ALL ON SCHEMA ordering FROM PUBLIC, anon, authenticated;
 GRANT USAGE ON SCHEMA ordering TO postgres, service_role;
 GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA ordering TO postgres, service_role;
 GRANT USAGE, SELECT, UPDATE ON ALL SEQUENCES IN SCHEMA ordering TO postgres, service_role;
-
