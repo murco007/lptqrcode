@@ -14,6 +14,5 @@ async function cloudFetch(path,options={}){
  if(path==='/api/logout')sessionStorage.removeItem(staffSessionKey);
  return result;
 }
-document.addEventListener('click',async event=>{const link=event.target.closest('[data-cloud-export]');if(!link)return;event.preventDefault();try{const response=await cloudFetch(link.dataset.cloudExport);if(!response.ok){const data=await response.json();throw Error(data.error||'�ץX����');}const url=URL.createObjectURL(await response.blob());const a=document.createElement('a');a.href=url;a.download='tangdaren-'+(new URL(link.dataset.cloudExport,'https://route.internal').searchParams.get('day')||'report')+'.csv';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}catch(error){alert(error.message);}},true);
-
+document.addEventListener('click',async event=>{const link=event.target.closest('[data-cloud-export]');if(!link)return;event.preventDefault();try{const response=await cloudFetch(link.dataset.cloudExport);if(!response.ok){const data=await response.json();throw Error(data.error||'匯出失敗');}const url=URL.createObjectURL(await response.blob());const a=document.createElement('a');a.href=url;a.download='tangdaren-'+(new URL(link.dataset.cloudExport,'https://route.internal').searchParams.get('day')||'report')+'.csv';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}catch(error){alert(error.message);}},true);
 
