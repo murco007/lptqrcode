@@ -1,6 +1,6 @@
-/* ���F�H�\�����G�H�y�������N�ู�A�e�x�P�p�Ц@�γ̪� 10 ���q��C */
+/* 湯達人餐車版：以流水號取代桌號，前台與廚房共用最近 10 筆訂單。 */
 (() => {
-  table = 1; // �ª��ʪ�������|�ˬd table�F�e���P API ������ܡ��ϥήู�C
+  table = 1; // 舊版購物車元件會檢查 table；畫面與 API 都不顯示／使用桌號。
   const style = document.createElement('style');
   style.textContent = `
     .truck-orders{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:14px}
@@ -22,23 +22,23 @@
   document.head.appendChild(style);
 
   header = function () {
-    return '<header class="app-header"><a class="brand" href="/"><span class="seal">��</span><div><strong>���F�H</strong><small>�\���� QR �I�\</small></div></a><div class="header-right">' +
-      (path === '/' ? '<span class="pill">�K��ู?�O�U�y����</span>' : '<span class="subtle">�\����B�޲z</span>' + connection() + '<button class="link-button" data-action="logout">�n�X</button>') +
+    return '<header class="app-header"><a class="brand" href="/"><span class="seal">湯</span><div><strong>湯達人</strong><small>餐車版 QR 點餐</small></div></a><div class="header-right">' +
+      (path === '/' ? '<span class="pill">免填桌號・記下流水號</span>' : '<span class="subtle">餐車營運管理</span>' + connection() + '<button class="link-button" data-action="logout">登出</button>') +
       '</div></header>';
   };
 
-  billTitle = b => '�y���� ' + String(b.serial ?? b.id ?? '').padStart(4, '0');
+  billTitle = b => '流水號 ' + String(b.serial ?? b.id ?? '').padStart(4, '0');
 
   cartContent = function () {
-    return '<div class="cart-head"><h2>�ڪ��I�\�M��</h2>' +
-      (state.drawer ? '<button class="link-button" data-action="drawer">����</button>' : '') +
+    return '<div class="cart-head"><h2>我的點餐清單</h2>' +
+      (state.drawer ? '<button class="link-button" data-action="drawer">關閉</button>' : '') +
       '</div>' +
       (state.cart.length ? state.cart.map((x, i) =>
-        '<div class="cart-item"><strong>' + esc(x.name) + '</strong><div class="row"><div class="qty"><button aria-label="���" data-qty="' + i + '" data-delta="-1">?</button><span>' + x.qty + '</span><button aria-label="�W�[" data-qty="' + i + '" data-delta="1">+</button></div><b>' + money(x.price * x.qty) + '</b></div><button class="link-button" data-note="' + i + '">' + (x.note ? '�Ƶ��G' + esc(x.note) : '�s�W�\�I�Ƶ�') + '</button></div>'
-      ).join('') : '<div class="cart-empty"><span class="empty-icon">??</span><strong>�٨S�����\</strong>�бq�\�I�M��[�J�\�I</div>') +
-      '<div class="cart-total row"><span>�X�p</span><strong class="price">' + money(cartTotal()) + '</strong></div>' +
-      '<button class="btn" data-action="submit" ' + (state.cloudReady === false || !state.cart.length || busy || !state.online ? 'disabled' : '') + '>' + (busy ? '�e�椤�K' : '�e�X�q��') + '</button>' +
-      '<div class="cart-note">�e���аO�U�e���W���y�����A���d�i�̸����b�C</div>' +
+        '<div class="cart-item"><strong>' + esc(x.name) + '</strong><div class="row"><div class="qty"><button aria-label="減少" data-qty="' + i + '" data-delta="-1">−</button><span>' + x.qty + '</span><button aria-label="增加" data-qty="' + i + '" data-delta="1">+</button></div><b>' + money(x.price * x.qty) + '</b></div><button class="link-button" data-note="' + i + '">' + (x.note ? '備註：' + esc(x.note) : '新增餐點備註') + '</button></div>'
+      ).join('') : '<div class="cart-empty"><span class="empty-icon">🍲</span><strong>還沒有選餐</strong>請從餐點清單加入餐點</div>') +
+      '<div class="cart-total row"><span>合計</span><strong class="price">' + money(cartTotal()) + '</strong></div>' +
+      '<button class="btn" data-action="submit" ' + (state.cloudReady === false || !state.cart.length || busy || !state.online ? 'disabled' : '') + '>' + (busy ? '送單中…' : '送出訂單') + '</button>' +
+      '<div class="cart-note">送單後請記下畫面上的流水號，至櫃檯依號結帳。</div>' +
       (state.cart.length ? '' : '');
   };
 
@@ -46,15 +46,15 @@
     document.body.classList.add('guest-ordering');
     const count = state.cart.reduce((sum, item) => sum + item.qty, 0);
     $('#app').innerHTML = header() +
-      (state.cloudReady === false ? '<div role="status" style="padding:16px;text-align:center;background:#fff1d6;color:#704812;font-size:18px">�t�ηǳƤ��A�Ȯɤ���e�X�q��C</div>' : '') +
-      '<div class="guest-layout"><aside class="categories"><div class="eyebrow">MENU</div><h3>����\�I</h3><div class="category-picker"><label for="category-choice">�\�I����</label><select id="category-choice">' +
+      (state.cloudReady === false ? '<div role="status" style="padding:16px;text-align:center;background:#fff1d6;color:#704812;font-size:18px">系統準備中，暫時不能送出訂單。</div>' : '') +
+      '<div class="guest-layout"><aside class="categories"><div class="eyebrow">MENU</div><h3>選擇餐點</h3><div class="category-picker"><label for="category-choice">餐點分類</label><select id="category-choice">' +
       categories.map(c => '<option value="' + esc(c) + '"' + (state.category === c ? ' selected' : '') + '>' + esc(c) + '</option>').join('') +
-      '</select></div><div class="category-foot">��n�\�I��e�X�q��A�O�U�y�����A�A���d�i���b�C</div></aside><main>' +
-      '<section class="hero"><div class="hero-copy"><div class="eyebrow">SOUP MASTER FOOD TRUCK</div><h1>���F�H�\����<br>QR �I�\</h1><p>��n�\�I?�e�X�q��?�̬y�������b</p><span class="pill" style="display:inline-block;margin-top:13px;background:#ffffffa8;font-size:12px">�e���аO�U�ۤv���y����</span></div><img src="https://tb-static.uber.com/prod/image-proc/processed_images/74363da08811b237f69d99b887897bfd/a19bb09692310dfd41e49a96c424b3a6.jpeg" alt="���F�H�L��"></section>' +
-      '<div class="section-heading"><h2 id="menu-heading">' + esc(state.category) + '</h2><input class="search" id="search" placeholder="�j�M�\�I" aria-label="�j�M�\�I" value="' + esc(state.query) + '"></div>' +
-      '<div class="menu-grid" id="menu-grid">' + foodCards() + '</div><footer class="developer-credit"><span>���F�H�\���� QR �I�\</span></footer></main>' +
+      '</select></div><div class="category-foot">選好餐點後送出訂單，記下流水號，再至櫃檯結帳。</div></aside><main>' +
+      '<section class="hero"><div class="hero-copy"><div class="eyebrow">SOUP MASTER FOOD TRUCK</div><h1>湯達人餐車版<br>QR 點餐</h1><p>選好餐點・送出訂單・依流水號結帳</p><span class="pill" style="display:inline-block;margin-top:13px;background:#ffffffa8;font-size:12px">送單後請記下自己的流水號</span></div><img src="https://tb-static.uber.com/prod/image-proc/processed_images/74363da08811b237f69d99b887897bfd/a19bb09692310dfd41e49a96c424b3a6.jpeg" alt="湯達人燉湯"></section>' +
+      '<div class="section-heading"><h2 id="menu-heading">' + esc(state.category) + '</h2><input class="search" id="search" placeholder="搜尋餐點" aria-label="搜尋餐點" value="' + esc(state.query) + '"></div>' +
+      '<div class="menu-grid" id="menu-grid">' + foodCards() + '</div><footer class="developer-credit"><span>湯達人餐車版 QR 點餐</span></footer></main>' +
       '<aside id="cart" class="cart ' + (state.drawer ? 'show' : '') + '">' + cartContent() + '</aside></div>' +
-      '<button class="mobile-cart" data-action="drawer"><span>�ڪ��I�\�M��?' + count + ' ��</span><strong>' + money(cartTotal()) + '</strong></button>';
+      '<button class="mobile-cart" data-action="drawer"><span>我的點餐清單・' + count + ' 項</span><strong>' + money(cartTotal()) + '</strong></button>';
   };
 
   submitOrder = async function () {
@@ -64,9 +64,9 @@
     try {
       const result = await api('/api/order', { requestId:newId(), items:orderItems });
       state.cart = []; persist(); state.drawer = false;
-      modal('<div class="truck-confirm"><h2>�q��w�e�X</h2><div>�аO�U�z���y����</div><div class="truck-confirm-number">' + esc(String(result.serial).padStart(4,'0')) + '</div><hr>' +
-        orderItems.map(x => { const p=state.menu.find(y=>y.id===x.id); return '<div class="row"><span>' + esc(p?.name || '') + ' �� ' + x.qty + (x.note ? '<div class="note">' + esc(x.note) + '</div>' : '') + '</span><b>' + money((p?.price || x.price) * x.qty) + '</b></div>'; }).join('') +
-        '<div class="row" style="margin-top:14px"><strong>�X�p</strong><strong>' + money(orderItems.reduce((sum,x)=>sum+x.price*x.qty,0)) + '</strong></div><p class="checkout-reminder">�Ц��d�i�̬y�������b</p></div><div class="modal-actions"><button class="btn" data-action="close">����</button></div>');
+      modal('<div class="truck-confirm"><h2>訂單已送出</h2><div>請記下您的流水號</div><div class="truck-confirm-number">' + esc(String(result.serial).padStart(4,'0')) + '</div><hr>' +
+        orderItems.map(x => { const p=state.menu.find(y=>y.id===x.id); return '<div class="row"><span>' + esc(p?.name || '') + ' × ' + x.qty + (x.note ? '<div class="note">' + esc(x.note) + '</div>' : '') + '</span><b>' + money((p?.price || x.price) * x.qty) + '</b></div>'; }).join('') +
+        '<div class="row" style="margin-top:14px"><strong>合計</strong><strong>' + money(orderItems.reduce((sum,x)=>sum+x.price*x.qty,0)) + '</strong></div><p class="checkout-reminder">請至櫃檯依流水號結帳</p></div><div class="modal-actions"><button class="btn" data-action="close">完成</button></div>');
     } catch (error) {
       toast(error.message);
       if (error.status === 409) {
@@ -83,28 +83,28 @@
   function orderCard(order, kitchenView) {
     const allServed=order.lines.every(line=>Number(line.served)===1 || line.served===true);
     const paid=order.status==='paid';
-    return '<article class="truck-order"><div class="truck-order-head"><div><strong>' + esc(billTitle(order)) + '</strong><div class="truck-slot">' + time(order.opened_at) + '</div></div><div><span class="status ' + (paid?'done':'') + '">' + (paid?'�w���b':'�ݵ��b') + '</span><br><span class="status ' + (allServed?'done':'') + '">' + (allServed?'�w�X�\':'�s�@��') + '</span></div></div><div class="truck-order-body">' +
+    return '<article class="truck-order"><div class="truck-order-head"><div><strong>' + esc(billTitle(order)) + '</strong><div class="truck-slot">' + time(order.opened_at) + '</div></div><div><span class="status ' + (paid?'done':'') + '">' + (paid?'已結帳':'待結帳') + '</span><br><span class="status ' + (allServed?'done':'') + '">' + (allServed?'已出餐':'製作中') + '</span></div></div><div class="truck-order-body">' +
       order.lines.map(line => kitchenView ?
-        '<div class="serve-line"><input type="checkbox" id="serve-' + esc(line.line_id) + '" data-serve="' + esc(line.line_id) + '" ' + (line.served?'checked':'') + '><label for="serve-' + esc(line.line_id) + '"><strong class="' + (line.served?'done-name':'') + '">' + esc(line.name) + ' �� ' + line.qty + '</strong>' + (line.note?'<div class="note">' + esc(line.note) + '</div>':'') + '</label></div>' :
-        '<div class="truck-line"><div class="row"><span>' + esc(line.name) + ' �� ' + line.qty + '</span><b>' + money(line.price*line.qty) + '</b></div>' + (line.note?'<div class="note">' + esc(line.note) + '</div>':'') + '<div class="subtle">' + (line.served?'�w�X�\':'�ݥX�\') + '</div></div>'
+        '<div class="serve-line"><input type="checkbox" id="serve-' + esc(line.line_id) + '" data-serve="' + esc(line.line_id) + '" ' + (line.served?'checked':'') + '><label for="serve-' + esc(line.line_id) + '"><strong class="' + (line.served?'done-name':'') + '">' + esc(line.name) + ' × ' + line.qty + '</strong>' + (line.note?'<div class="note">' + esc(line.note) + '</div>':'') + '</label></div>' :
+        '<div class="truck-line"><div class="row"><span>' + esc(line.name) + ' × ' + line.qty + '</span><b>' + money(line.price*line.qty) + '</b></div>' + (line.note?'<div class="note">' + esc(line.note) + '</div>':'') + '<div class="subtle">' + (line.served?'已出餐':'待出餐') + '</div></div>'
       ).join('') +
-      '<div class="row" style="padding:12px 0"><strong>�X�p</strong><strong class="price">' + money(order.total) + '</strong></div></div><div class="truck-order-actions">' +
-      (!kitchenView ? (paid ? '<span class="status done">���b����</span>' : '<button class="btn small" data-checkout="' + esc(order.id) + '">�y�������b</button>') : '<span class="subtle">�Ŀ��\�I��s�X�\���A</span>') +
-      '<button class="btn small danger" data-truck-delete="' + esc(order.id) + '">�����q��</button></div></article>';
+      '<div class="row" style="padding:12px 0"><strong>合計</strong><strong class="price">' + money(order.total) + '</strong></div></div><div class="truck-order-actions">' +
+      (!kitchenView ? (paid ? '<span class="status done">結帳完成</span>' : '<button class="btn small" data-checkout="' + esc(order.id) + '">流水號結帳</button>') : '<span class="subtle">勾選餐點更新出餐狀態</span>') +
+      '<button class="btn small danger" data-truck-delete="' + esc(order.id) + '">移除訂單</button></div></article>';
   }
 
   function orderBoard(kitchenView) {
     const orders=latestOrders();
-    const title=kitchenView?'�p�ХX�\':'�e�x���b';
-    return pageTop(title,'�̷s�q��T�w��ܦb�Ĥ@��A�e���O�d�̪� 10 �i�C','<span class="pill">�ثe ' + orders.length + ' / 10 �i</span>') +
-      '<div class="truck-orders">' + (orders.length ? orders.map(o=>orderCard(o,kitchenView)).join('') : '<div class="panel empty truck-empty"><span class="empty-icon">??</span><h3>�ثe�S���q��</h3>�ȤH�e�X�q���|��ܦb�o�̡C</div>') + '</div>';
+    const title=kitchenView?'廚房出餐':'前台結帳';
+    return pageTop(title,'最新訂單固定顯示在第一格，畫面保留最近 10 張。','<span class="pill">目前 ' + orders.length + ' / 10 張</span>') +
+      '<div class="truck-orders">' + (orders.length ? orders.map(o=>orderCard(o,kitchenView)).join('') : '<div class="panel empty truck-empty"><span class="empty-icon">🍲</span><h3>目前沒有訂單</h3>客人送出訂單後會顯示在這裡。</div>') + '</div>';
   }
   cashier = () => orderBoard(false);
   kitchen = () => orderBoard(true);
   qrcodes = function () {
-    const cards=[{key:'guest',title:'�\���I�\',href:'/'},{key:'cashier',title:'�e�x���b',href:'/cashier'},{key:'kitchen',title:'�p�ХX�\',href:'/kitchen'}];
-    return pageTop('QR Code','�\���U�ȨϥβĤ@�i QR Code �I�\�C','<button class="btn" data-action="print">�C�L QR Code</button>') +
-      '<div class="qr-grid">' + cards.map(c=>{const href=siteHref(c.href),image='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(qrSvg(href));return '<article class="qr-card"><h2>'+c.title+'</h2><img class="qrcode" src="'+image+'" alt="'+c.title+' QR Code"><p>'+esc(href)+'</p><div class="actions"><a class="btn small secondary" href="'+image+'" download="'+c.key+'.svg">�U�� SVG</a><a class="btn small ghost" href="'+href+'" target="_blank" rel="noopener">�}��</a></div></article>';}).join('') + '</div>';
+    const cards=[{key:'guest',title:'餐車點餐',href:'/'},{key:'cashier',title:'前台結帳',href:'/cashier'},{key:'kitchen',title:'廚房出餐',href:'/kitchen'}];
+    return pageTop('QR Code','餐車顧客使用第一張 QR Code 點餐。','<button class="btn" data-action="print">列印 QR Code</button>') +
+      '<div class="qr-grid">' + cards.map(c=>{const href=siteHref(c.href),image='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(qrSvg(href));return '<article class="qr-card"><h2>'+c.title+'</h2><img class="qrcode" src="'+image+'" alt="'+c.title+' QR Code"><p>'+esc(href)+'</p><div class="actions"><a class="btn small secondary" href="'+image+'" download="'+c.key+'.svg">下載 SVG</a><a class="btn small ghost" href="'+href+'" target="_blank" rel="noopener">開啟</a></div></article>';}).join('') + '</div>';
   };
 
   const baseRefresh=refresh;
@@ -115,7 +115,7 @@
         const result=await api('/api/board');
         if (JSON.stringify(result.rows)!==JSON.stringify(state.rows)) { state.rows=result.rows; if(!$('#modal').innerHTML) render(); }
       } else if (path==='/') {
-        // �X�ȭ����A���ู߮�F�\�I�Ѫ즸���J���o�C
+        // 訪客頁不再輪詢桌號；餐點由初次載入取得。
       } else { polling=false; return baseRefresh(); }
       if(!state.online){state.online=true;render();}
     } catch(error) {
@@ -128,7 +128,7 @@
     const button=event.target.closest('[data-truck-delete]');
     if(!button)return;
     event.preventDefault();event.stopImmediatePropagation();
-    if(!confirm('�����o�i�q�檺�e�x�P�p����ܡH�q��������O�d�ѳ����d�ߡC'))return;
+    if(!confirm('移除這張訂單的前台與廚房顯示？訂單紀錄仍保留供報表查詢。'))return;
     try { await api('/api/order/archive',{billId:button.dataset.truckDelete}); await refresh(); render(); }
     catch(error){toast(error.message);}
   }, true);
@@ -136,4 +136,3 @@
   const originalToast=toast;
   toast=function(message){return originalToast(message);};
 })();
-
