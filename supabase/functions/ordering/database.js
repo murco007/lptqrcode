@@ -3,6 +3,7 @@ export function translate(query){
  let index=0;
  let sql=query.replaceAll('ORDER BY rowid','ORDER BY id')
  .replaceAll('CASE WHEN window=','CASE WHEN login_attempts.window=')
+ .replaceAll('CASE WHEN window_bucket=','CASE WHEN login_attempts.window_bucket=')
  .replaceAll('THEN attempts+1','THEN login_attempts.attempts+1')
  .replaceAll("substr(datetime(b.paid_at,'+8 hours'),1,10)","to_char(b.paid_at::timestamptz AT TIME ZONE 'Asia/Taipei','YYYY-MM-DD')")
  .replace(/\bwindow\b/g,'"window"');

@@ -21,9 +21,39 @@
   `;
   document.head.appendChild(style);
 
+  const ticketPrefix = 'tangdaren-truck-ticket-v1:' + rootUrl.pathname + ':';
+  const recentTickets = new Set();
+
+  function rememberTicket(serial) {
+    if (!Number.isSafeInteger(serial) || serial < 1) return;
+    recentTickets.add(serial);
+    try { localStorage.setItem(ticketPrefix + serial, '1'); } catch {}
+  }
+
+  function savedTickets() {
+    const tickets = new Set(recentTickets);
+    try {
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (!key?.startsWith(ticketPrefix)) continue;
+        const serial = Number(key.slice(ticketPrefix.length));
+        if (Number.isSafeInteger(serial) && serial > 0) tickets.add(serial);
+      }
+    } catch {}
+    return [...tickets].sort((a, b) => b - a);
+  }
+
+  function showSavedTickets() {
+    const tickets = savedTickets();
+    modal('<h2>我的流水號</h2><p>此瀏覽器保存的送單紀錄</p>' +
+      (tickets.length ? '<ul>' + tickets.map(serial => '<li><strong>' + String(serial).padStart(4, '0') + '</strong></li>').join('') + '</ul>' :
+        '<p>目前沒有已儲存的流水號。</p>') +
+      '<div class="modal-actions"><button class="btn" data-action="close">關閉</button></div>');
+  }
+
   header = function () {
     return '<header class="app-header"><a class="brand" href="/"><span class="seal">湯</span><div><strong>湯達人</strong><small>餐車版 QR 點餐</small></div></a><div class="header-right">' +
-      (path === '/' ? '<span class="pill">免填桌號・記下流水號</span>' : '<span class="subtle">餐車營運管理</span>' + connection() + '<button class="link-button" data-action="logout">登出</button>') +
+      (path === '/' ? '<button type="button" class="btn small secondary" data-truck-tickets>我的流水號</button>' : '<span class="subtle">餐車營運管理</span>' + connection() + '<button class="link-button" data-action="logout">登出</button>') +
       '</div></header>';
   };
 
@@ -63,6 +93,7 @@
     const orderItems = state.cart.map(x => ({ id:x.id, qty:x.qty, note:x.note || '', price:x.price }));
     try {
       const result = await api('/api/order', { requestId:newId(), items:orderItems });
+      rememberTicket(result.serial);
       state.cart = []; persist(); state.drawer = false;
       modal('<div class="truck-confirm"><h2>訂單已送出</h2><div>請記下您的流水號</div><div class="truck-confirm-number">' + esc(String(result.serial).padStart(4,'0')) + '</div><hr>' +
         orderItems.map(x => { const p=state.menu.find(y=>y.id===x.id); return '<div class="row"><span>' + esc(p?.name || '') + ' × ' + x.qty + (x.note ? '<div class="note">' + esc(x.note) + '</div>' : '') + '</span><b>' + money((p?.price || x.price) * x.qty) + '</b></div>'; }).join('') +
@@ -126,6 +157,10 @@
   };
 
   document.addEventListener('click', async event => {
+    if (path === '/' && event.target.closest('[data-truck-tickets]')) {
+      showSavedTickets();
+      return;
+    }
     const button=event.target.closest('[data-truck-delete]');
     if(!button)return;
     event.preventDefault();event.stopImmediatePropagation();

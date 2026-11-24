@@ -170,7 +170,7 @@ async function api(req,env,u){
  }
  if(path==='/api/logout'&&req.method==='POST')return json({ok:true},200,{'Set-Cookie':'staff=; HttpOnly; '+(env.LAN_MODE?'':'Secure; ')+'SameSite=Strict; Path=/; Max-Age=0'});
  if(path==='/api/menu'&&req.method==='GET')return json({menu:await menu(db),role,canManageStaff:staffOwner(identity),username:identity?.username||'',displayName:identity?.name||'',sourceDate:'2026-11-19'});
- if(path==='/api/table'&&req.method==='GET'){const t=Number(u.searchParams.get('table'));if(!validTable(t))fail('桌號必須為 1–10');return json(await tableState(db,t));}
+ if(path==='/api/table'&&req.method==='GET'){if(!role)fail('請先登入員工後台。',401);const t=Number(u.searchParams.get('table'));if(!validTable(t))fail('桌號必須為 1–10');return json(await tableState(db,t));}
  if(path==='/api/order'&&req.method==='POST'){
   if(!/^[a-zA-Z0-9-]{16,64}$/.test(b.requestId||''))fail('缺少送單識別碼。');
   if(!Array.isArray(b.items)||!b.items.length||b.items.length>30)fail('請選擇 1–30 項餐點。');
@@ -214,7 +214,7 @@ async function api(req,env,u){
    return json({ok:true,id});
   }
   if(path==='/api/staff/delete'&&req.method==='POST'){
-   const changed=await db.prepare("UPDATE staff_accounts SET active=0 WHERE id=? AND role IN ('kitchen','cashier') AND active=1").bind(String(b.id)).run();
+   const changed=await db.prepare("UPDATE staff_accounts SET active=0 WHERE id=? AND id<>'owner' AND role IN ('admin','kitchen','cashier') AND active=1").bind(String(b.id)).run();
    if(!changed.meta.changes)fail('找不到此人員。',404);
    return json({ok:true});
   }
