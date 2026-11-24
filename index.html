@@ -547,20 +547,13 @@ window.__startTruckApp=()=>{load();setInterval(refresh,2500)};
   let p=document.getElementById('cp-controls');if(!p){p=document.createElement('section');p.id='cp-controls';p.className='cp-controls';
    const autoMarkup='<label><input type="checkbox" id="cp-auto">訂單(結帳)自動列印</label>';
    if(settingsPage){
-    p.innerHTML=platformSettings()+'<div class="actions"><strong>紙張與測試</strong><button class="btn small secondary" id="cp-test" type="button">測試列印</button><label><input type="checkbox" id="cp-narrow">58 mm 紙</label><label><input type="checkbox" id="cp-cut">自動切紙</label>'+(windowsPC?'<button class="btn small secondary" id="cp-download" type="button">下載 Windows 列印程式</button>':'')+'<span id="cp-last"></span></div><div class="cp-status" id="cp-status" role="status" aria-live="polite"></div><small>USB／藍牙連接成功並測試出紙後，再回廚房或前台啟用「訂單(結帳)自動列印」。請保持網頁開啟。系統列印／AirPrint 需手動確認。</small>';
+    p.innerHTML=platformSettings()+'<div class="actions"><strong>紙張與測試</strong><button class="btn small secondary" id="cp-test" type="button">測試列印</button><label><input type="checkbox" id="cp-narrow">58 mm 紙</label><label><input type="checkbox" id="cp-cut">自動切紙</label>'+(windowsPC?'<a class="btn small secondary" id="cp-download" href="./windows-print-bridge.ps1" download="windows-print-bridge.ps1">下載 Windows 列印程式</a>':'')+'<span id="cp-last"></span></div><div class="cp-status" id="cp-status" role="status" aria-live="polite"></div><small>USB／藍牙連接成功並測試出紙後，再回廚房或前台啟用「訂單(結帳)自動列印」。請保持網頁開啟。系統列印／AirPrint 需手動確認。</small>';
     document.getElementById('cp-settings-host').appendChild(p);
    }else{
     p.innerHTML='<div class="actions"><button class="btn small secondary" id="cp-history" type="button">訂單查詢／重印</button>'+autoMarkup+'</div>';
     main.prepend(p);
    }
 
-   p.querySelector('#cp-download')?.addEventListener('click',async()=>{try{
-    const file='windows-print-bridge.ps1',url=new URL(file,location.href);url.search='';url.hash='';
-    const response=await fetch(url.href,{cache:'no-store'});if(!response.ok)throw Error('下載失敗，請稍候再試。');
-    const blob=new Blob(['\ufeff',await response.text()],{type:'text/plain;charset=utf-8'}),href=URL.createObjectURL(blob),link=document.createElement('a');
-    link.href=href;link.download=file;document.body.appendChild(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(href),60000);
-    message('已下載列印程式。請在下載資料夾啟動 PowerShell，執行：powershell -NoProfile -ExecutionPolicy Bypass -File .\\windows-print-bridge.ps1，選印表機後再按連接。');
-   }catch(error){message(error.message);}});
 
 
    p.querySelector('#cp-transport')?.addEventListener('change',event=>{
