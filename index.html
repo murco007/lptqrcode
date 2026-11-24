@@ -258,18 +258,37 @@ window.__startTruckApp=()=>{load();setInterval(refresh,2500)};
  const stamp=v=>v?new Date(v).toLocaleString('zh-TW',{timeZone:'Asia/Taipei',hour12:false}):'';
  function lines(job){const b=job.bill||{},paid=job.kind==='receipt'&&b.status==='paid',receipt=job.kind==='receipt',rows=job.lines||[];
   const out=['湯達人',receipt?(paid?'結帳清單（非統一發票）':'消費明細（尚未結帳）'):'廚房點餐單'];
+  const serial=String(b.serial??'');
+  out.push(/^[1-9]\d*$/.test(serial)?'流水單號 '+serial.padStart(4,'0'):(b.pickup_code?'取餐碼 '+b.pickup_code:'流水單號 —'));
   if(String(job.id).startsWith('reprint:')||job.reprint)out.push('＊＊ 重印 ＊＊');
-  if(b.pickup_code)out.push('取餐碼：'+b.pickup_code,'取餐日期：'+b.pickup_date,(b.preorder_channel==='web'?'網路':'電話')+'預購');else out.push('第 '+b.table_no+' 桌');out.push('帳單：'+b.id,'時間：'+stamp(job.created_at),'------------------------------');let total=0;
+  if(b.pickup_code)out.push('取餐碼：'+b.pickup_code,'取餐日期：'+b.pickup_date,(b.preorder_channel==='web'?'網路':'電話')+'預購');out.push('時間：'+stamp(job.created_at),'------------------------------');let total=0;
   for(const l of rows){out.push(l.name+' × '+l.qty);if(receipt)out.push('NT$'+l.price+' × '+l.qty+' = NT$'+l.price*l.qty);if(l.note)out.push('備註：'+l.note);out.push('');total+=l.price*l.qty;}
   out.push('------------------------------','本單合計 NT$'+total);
   if(paid)out.push('付款：'+b.payment,'實收 NT$'+b.received,'找零 NT$'+(b.received-total),'結帳：'+stamp(b.paid_at));
   else if(receipt)out.push('尚未收款，請至櫃檯結帳');
   out.push('系統開發：Winnie NO.17');return out;
  }
- function markup(job){return '<div class="cp-paper">'+lines(job).map((l,i)=>'<div'+(i<3?' class="cp-heading"':'')+'>'+escape(l||'\u00a0')+'</div>').join('')+'</div>';}
- function bands(job,width=576){const result=[],rows=[],c=document.createElement('canvas'),ctx=c.getContext('2d');ctx.font=(width===576?28:25)+'px sans-serif';
-  for(const raw of lines(job)){let row='';for(const char of raw){if(ctx.measureText(row+char).width>width-24&&row){rows.push(row);row=char;}else row+=char;}rows.push(row);}
-  for(let start=0;start<rows.length;start+=12){const n=Math.min(12,rows.length-start),height=n*40+12;c.width=width;c.height=height;ctx.fillStyle='#fff';ctx.fillRect(0,0,width,height);ctx.fillStyle='#000';ctx.font=(width===576?28:25)+'px sans-serif';for(let j=0;j<n;j++)ctx.fillText(rows[start+j],12,34+j*40);
+ function markup(job){return '<div class="cp-paper">'+lines(job).map((l,i)=>'<div'+(i===2?' class="cp-heading cp-ticket"':i<2?' class="cp-heading"':'')+'>'+escape(l||'\u00a0')+'</div>').join('')+'</div>';}
+ function bands(job,width=576){const result=[],rows=[],c=document.createElement('canvas'),ctx=c.getContext('2d');const normal=width===576?28:25;
+  lines(job).forEach((raw,index)=>{
+   const ticket=index===2,size=ticket?(width===576?46:36):normal;
+   const font=(ticket?'bold ':'')+size+'px sans-serif',height=ticket?size+18:40;
+   ctx.font=font;
+   let row='';
+   for(const char of raw){
+    if(row&&ctx.measureText(row+char).width>width-24){rows.push({text:row,font,height,size,ticket});row=char;}
+    else row+=char;
+   }
+   rows.push({text:row,font,height,size,ticket});
+  });
+  for(let start=0;start<rows.length;start+=12){
+   const batch=rows.slice(start,start+12),height=batch.reduce((sum,row)=>sum+row.height,12);
+   c.width=width;c.height=height;ctx.fillStyle='#fff';ctx.fillRect(0,0,width,height);ctx.fillStyle='#000';
+   let y=6;
+   for(const row of batch){
+    ctx.font=row.font;ctx.textAlign=row.ticket?'center':'left';
+    ctx.fillText(row.text,row.ticket?width/2:12,y+row.size);y+=row.height;
+   }
    const pixels=ctx.getImageData(0,0,width,height).data,stride=width/8,data=new Uint8Array(8+stride*height);data.set([29,118,48,0,stride&255,stride>>8,height&255,height>>8]);
    for(let y=0;y<height;y++)for(let x=0;x<width;x++){const p=(y*width+x)*4;if(pixels[p]+pixels[p+1]+pixels[p+2]<384)data[8+y*stride+(x>>3)]|=128>>(x%8);}result.push(data);
   }return result;
@@ -289,7 +308,7 @@ window.__startTruckApp=()=>{load();setInterval(refresh,2500)};
  async function call(url,body){const r=await cloudFetch(url,{method:body?'POST':'GET',headers:body?{'Content-Type':'application/json'}:{},body:body?JSON.stringify(body):undefined});const j=await r.json();if(!r.ok)throw Error(j.error||'列印連線失敗');return j;}
  const originalFetch=cloudFetch;cloudFetch=async function(url,options){const r=await originalFetch(url,options);if(url==='/api/checkout'&&r.ok){try{lastBill=JSON.parse(options.body).billId;sessionStorage.setItem('cloud-last-paid',lastBill);decorate();}catch{}}if(url==='/api/logout'){pref.auto=false;save();document.getElementById('cp-overlay')?.remove();document.body.classList.remove('cp-printing');}return r;};
  function style(){if(document.getElementById('cp-style'))return;const el=document.createElement('style');el.id='cp-style';el.textContent=`
- .cp-controls{padding:16px;margin:0 0 20px;border:1px solid #d9e4dd;border-radius:12px;background:#fff}.cp-controls .actions{display:flex;gap:10px;flex-wrap:wrap;align-items:center}.cp-controls label{display:flex;align-items:center;gap:6px}.cp-status{font-size:14px;color:#50675b;margin-top:9px}.cp-overlay{position:fixed;inset:0;background:#f7f8f5;z-index:9999;overflow:auto;padding:18px}.cp-top{max-width:800px;margin:0 auto 20px;display:flex;gap:10px;flex-wrap:wrap}.cp-paper{width:72mm;max-width:100%;margin:auto;background:#fff;padding:4mm;color:#000;font:16px/1.5 sans-serif;overflow-wrap:anywhere;white-space:pre-wrap}.cp-heading{font-size:20px;font-weight:bold;text-align:center}.cp-history{max-width:850px;margin:auto;background:white;padding:18px}.cp-history section{padding:12px 0;border-bottom:1px solid #ddd}.cp-history button{margin:5px}
+ .cp-controls{padding:16px;margin:0 0 20px;border:1px solid #d9e4dd;border-radius:12px;background:#fff}.cp-controls .actions{display:flex;gap:10px;flex-wrap:wrap;align-items:center}.cp-controls label{display:flex;align-items:center;gap:6px}.cp-status{font-size:14px;color:#50675b;margin-top:9px}.cp-overlay{position:fixed;inset:0;background:#f7f8f5;z-index:9999;overflow:auto;padding:18px}.cp-top{max-width:800px;margin:0 auto 20px;display:flex;gap:10px;flex-wrap:wrap}.cp-paper{width:72mm;max-width:100%;margin:auto;background:#fff;padding:4mm;color:#000;font:16px/1.5 sans-serif;overflow-wrap:anywhere;white-space:pre-wrap}.cp-heading{font-size:20px;font-weight:bold;text-align:center}.cp-ticket{font-size:28px;line-height:1.25;margin:5px 0}.cp-history{max-width:850px;margin:auto;background:white;padding:18px}.cp-history section{padding:12px 0;border-bottom:1px solid #ddd}.cp-history button{margin:5px}
  @media print{body.cp-printing{background:#fff!important}body.cp-printing>*:not(#cp-overlay){display:none!important}body.cp-printing #cp-overlay{display:block!important;position:static!important;padding:0!important;overflow:visible!important;background:#fff!important}body.cp-printing .cp-top{display:none!important}body.cp-printing .cp-paper{display:block!important;box-shadow:none!important;width:var(--cp-width,72mm);padding:0!important;margin:0!important;max-width:100%!important}body.cp-printing .cp-paper div{break-inside:avoid}@page{margin:4mm}}
  `;document.head.appendChild(el);}
  function overlay(){document.getElementById('cp-overlay')?.remove();const p=document.createElement('div');p.id='cp-overlay';p.className='cp-overlay';p.setAttribute('role','dialog');p.setAttribute('aria-label','列印預覽');document.body.appendChild(p);return p;}
@@ -314,7 +333,7 @@ window.__startTruckApp=()=>{load();setInterval(refresh,2500)};
    document.addEventListener('keydown',function(e){if(e.key==='Escape')send('close');});
    window.addEventListener('message',function(e){if(e.source!==parent||!e.data||!e.data.tangdarenReceiptResult)return;document.getElementById('receipt-status').textContent=e.data.message;});
   })();`;
-  const styles='*{box-sizing:border-box}body{margin:0;padding:12px;background:#f7f8f5;color:#173c36;font:16px/1.5 sans-serif}.toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:0 auto 14px;max-width:900px}button,select,a.close-link{font:inherit;padding:12px;border:1px solid #d9e4dd;border-radius:10px;background:white;color:#164f46;cursor:pointer}a.close-link{display:inline-block;text-decoration:none}button.primary{background:#164f46;color:white}.help,#receipt-status{max-width:900px;margin:10px auto}.cp-paper{width:var(--paper-width,72mm);max-width:100%;margin:20px auto;background:white;padding:4mm;color:black;white-space:pre-wrap;overflow-wrap:anywhere;font:16px/1.5 sans-serif}.cp-heading{text-align:center;font-size:20px;font-weight:bold}@media print{body{padding:0;background:white}.toolbar,.help,#receipt-status{display:none!important}.cp-paper{margin:0;padding:0;max-width:100%}.cp-paper div{break-inside:avoid}@page{margin:4mm}}';
+  const styles='*{box-sizing:border-box}body{margin:0;padding:12px;background:#f7f8f5;color:#173c36;font:16px/1.5 sans-serif}.toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:0 auto 14px;max-width:900px}button,select,a.close-link{font:inherit;padding:12px;border:1px solid #d9e4dd;border-radius:10px;background:white;color:#164f46;cursor:pointer}a.close-link{display:inline-block;text-decoration:none}button.primary{background:#164f46;color:white}.help,#receipt-status{max-width:900px;margin:10px auto}.cp-paper{width:var(--paper-width,72mm);max-width:100%;margin:20px auto;background:white;padding:4mm;color:black;white-space:pre-wrap;overflow-wrap:anywhere;font:16px/1.5 sans-serif}.cp-heading{text-align:center;font-size:20px;font-weight:bold}.cp-ticket{font-size:28px;line-height:1.25;margin:5px 0}@media print{body{padding:0;background:white}.toolbar,.help,#receipt-status{display:none!important}.cp-paper{margin:0;padding:0;max-width:100%}.cp-paper div{break-inside:avoid}@page{margin:4mm}}';
   frame.srcdoc='<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>'+styles+'</style></head><body><div class="toolbar"><a class="close-link" id="receipt-return" href="'+esc(siteHref(path))+'" target="_top">關閉並返回工作台</a><label>紙寬 <select id="receipt-width"><option value="72mm">80 mm 收據紙</option><option value="50mm">58 mm 收據紙</option><option value="180mm">A4</option></select></label><button type="button" class="primary" id="receipt-system">系統印表機列印</button><button type="button" id="receipt-usb">依列印設定直接列印</button>'+(allowed()?'<button type="button" id="receipt-apk">交由雲端 APK 列印</button>':'')+'</div><p class="help">請先在 Windows 安裝並試印 CP-Q1UN／PrinterPOS-80，再按「系統印表機列印」選擇它；若清單沒有，網站無法代為新增 Windows 印表機。</p><p id="receipt-status" role="status"></p>'+core.markup(data)+'<script>'+childCode+'<'+ '/script></body></html>';
   function respond(text){if(frame.contentWindow)frame.contentWindow.postMessage({tangdarenReceiptResult:true,message:text},'*');}
   async function onMessage(event){
@@ -571,7 +590,7 @@ window.__startTruckApp=()=>{load();setInterval(refresh,2500)};
    });
    p.querySelector('#cp-disconnect')?.addEventListener('click',async()=>{try{await disconnectPrinter();}catch(error){message(error.message);}});
    p.querySelector('#cp-test')?.addEventListener('click',async event=>{
-    const job={id:'printer-test:'+crypto.randomUUID(),kind:'kitchen',created_at:new Date().toISOString(),bill:{id:'列印測試',table_no:'—'},lines:[{name:'中文測試列印',price:0,qty:1,note:'這是測試單，非實際訂單。'}]};
+    const job={id:'printer-test:'+crypto.randomUUID(),kind:'kitchen',created_at:new Date().toISOString(),bill:{serial:1},lines:[{name:'中文測試列印',price:0,qty:1,note:'這是測試單，非實際訂單。'}]};
     if(mode()==='system'){systemTest(job);return;}
     const button=event.currentTarget;if(busy||connecting){message('目前正在列印或連線，請稍候。');return;}
     if(!ready()){message('請先在本頁連接印表機。');return;}button.disabled=true;busy=true;
