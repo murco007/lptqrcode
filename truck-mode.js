@@ -109,7 +109,8 @@
 
   const baseRefresh=refresh;
   refresh = async function () {
-    if (polling) return; polling=true;
+    // Do not poll protected endpoints or replace the login form before authentication.
+    if (polling || (path !== '/' && !state.role)) return; polling=true;
     try {
       if (path==='/cashier' || path==='/kitchen') {
         const result=await api('/api/board');
